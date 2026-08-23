@@ -28,7 +28,7 @@ To do so, the script `script/concat_lines.py` can be used:
 
 ### BIGREEDY masked-superstring proof of concept
 
-To index a BIGREEDY superstring, provide `--intervals embeddings.tsv`. The FASTA input must
+To index a BIGREEDY superstring, you can provide `--intervals embeddings.tsv`. The FASTA input must
 contain exactly one unwrapped DNA sequence `B`. The tab-separated intervals file has one
 zero-based, half-open `begin<TAB>end` interval per original SPSS string. Intervals must be
 sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases.
@@ -36,6 +36,21 @@ sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases
 	./sshash-lite build B.fa 31 15 --intervals embeddings.tsv -d tmp -o B.sshash
 
 Only k-mers fully contained in the listed intervals are indexed.
+
+KmerCamel masked-superstring output can be indexed directly, without an embeddings file:
+
+	kmercamel compute -k 31 -o bigreedy.msfa simplitigs.fa
+
+	./sshash-lite build bigreedy.msfa 31 15 --masked-superstring --canonical-parsing \
+		-d tmp -o bigreedy.sshash --check
+
+With `--masked-superstring`, uppercase bases encode represented k-mer starts and lowercase bases
+encode unrepresented starts. Normal KmerCamel `compute -o` output is directly usable as the
+min-one masked superstring for this proof of concept. SSHash-Lite consumes the case mask during
+construction and stores the DNA sequence plus the derived physical run ends, not the mask.
+
+KmerCamel's default reverse-complement behavior corresponds to SSHash-Lite
+`--canonical-parsing`; KmerCamel `-u` corresponds to SSHash-Lite regular parsing.
 
 ### Enable verbose output
 

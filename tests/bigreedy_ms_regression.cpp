@@ -2,6 +2,7 @@
 #include "../include/query/streaming_query.hpp"
 
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -41,18 +42,39 @@ std::string reverse_complement(std::string const& kmer) {
     return result;
 }
 
-void assert_differential(sshash::dictionary const& ordinary, sshash::dictionary const& bigreedy,
-                         bool canonical) {
+void assert_differential(sshash::dictionary const& ordinary, sshash::dictionary const& intervals,
+                         sshash::dictionary const& masked_superstring, bool canonical) {
     constexpr uint64_t k = 5;
     for (uint64_t i = 0; i != (1ULL << (2 * k)); ++i) {
         auto kmer = kmer_from_number(i, k);
         bool ordinary_answer = ordinary.is_member(kmer.c_str(), false);
-        bool bigreedy_answer = bigreedy.is_member(kmer.c_str(), false);
-        if (ordinary_answer != bigreedy_answer) {
+        bool intervals_answer = intervals.is_member(kmer.c_str(), false);
+        bool masked_superstring_answer = masked_superstring.is_member(kmer.c_str(), false);
+        if (ordinary_answer != intervals_answer || ordinary_answer != masked_superstring_answer) {
             throw std::runtime_error(std::string(canonical ? "canonical" : "regular") +
-                                     " ordinary and BIGREEDY membership differ for " + kmer);
+                                     " ordinary, intervals, and masked-superstring membership differ for " +
+                                     kmer);
         }
     }
+}
+
+std::string masked_sequence(std::string sequence, std::initializer_list<uint64_t> starts) {
+    for (char& base : sequence) base = static_cast<char>(std::tolower(base));
+    for (uint64_t start : starts) sequence[start] = static_cast<char>(std::toupper(sequence[start]));
+    return sequence;
+}
+
+void expect_build_failure(std::filesystem::path const& input,
+                          sshash::build_configuration const& configuration,
+                          std::string const& expected_message) {
+    try {
+        sshash::dictionary dictionary;
+        dictionary.build(input.string(), configuration);
+    } catch (std::runtime_error const& error) {
+        if (std::string(error.what()).find(expected_message) != std::string::npos) return;
+        throw std::runtime_error("unexpected validation error: " + std::string(error.what()));
+    }
+    throw std::runtime_error("masked-superstring validation did not reject invalid input");
 }
 
 void assert_expected_membership(sshash::dictionary const& dictionary, bool canonical) {
@@ -82,11 +104,15 @@ int run() {
     try {
         auto ordinary_fasta = root / "ordinary.fa";
         auto bigreedy_fasta = root / "bigreedy.fa";
+        auto masked_fasta = root / "bigreedy.msfa";
         auto intervals = root / "embeddings.tsv";
         auto queries = root / "queries.fa";
-        auto index = root / "bigreedy.sshash";
+        auto intervals_index = root / "bigreedy.sshash";
+        auto masked_index = root / "bigreedy-masked.sshash";
+        auto canonical_masked_index = root / "bigreedy-masked-canonical.sshash";
         write_file(ordinary_fasta, ">s1\nACGTTA\n>s2\nTAGTCG\n");
         write_file(bigreedy_fasta, ">B\nACGTTAGTCG\n");
+        write_file(masked_fasta, ">B\n" + masked_sequence("ACGTTAGTCG", {0, 1, 4, 5}) + "\n");
         write_file(intervals, "0\t6\n4\t10\n");
         write_file(queries, ">q1\nACGTT\n>q2\nAGTCG\n");
 
@@ -103,14 +129,25 @@ int run() {
         {
             sshash::dictionary bigreedy;
             bigreedy.build(bigreedy_fasta.string(), configuration);
-            essentials::save(bigreedy, index.c_str());
+            essentials::save(bigreedy, intervals_index.c_str());
         }
         sshash::dictionary reloaded_bigreedy;
-        essentials::load(reloaded_bigreedy, index.c_str());
+        essentials::load(reloaded_bigreedy, intervals_index.c_str());
 
-        assert_differential(ordinary, reloaded_bigreedy, false);
+        configuration.intervals_filename.clear();
+        configuration.masked_superstring = true;
+        {
+            sshash::dictionary masked_superstring;
+            masked_superstring.build(masked_fasta.string(), configuration);
+            essentials::save(masked_superstring, masked_index.c_str());
+        }
+        sshash::dictionary reloaded_masked_superstring;
+        essentials::load(reloaded_masked_superstring, masked_index.c_str());
+
+        assert_differential(ordinary, reloaded_bigreedy, reloaded_masked_superstring, false);
         assert_expected_membership(ordinary, false);
         assert_expected_membership(reloaded_bigreedy, false);
+        assert_expected_membership(reloaded_masked_superstring, false);
 
         auto report = reloaded_bigreedy.streaming_query_from_file(queries.string(), 1.0);
         if (report.num_kmers != 2 or report.num_positive_kmers != 2 or
@@ -120,15 +157,28 @@ int run() {
 
         configuration.canonical_parsing = true;
         configuration.intervals_filename.clear();
+        configuration.masked_superstring = false;
         sshash::dictionary canonical_ordinary;
         canonical_ordinary.build(ordinary_fasta.string(), configuration);
         configuration.intervals_filename = intervals.string();
         sshash::dictionary canonical_bigreedy;
         canonical_bigreedy.build(bigreedy_fasta.string(), configuration);
 
-        assert_differential(canonical_ordinary, canonical_bigreedy, true);
+        configuration.intervals_filename.clear();
+        configuration.masked_superstring = true;
+        {
+            sshash::dictionary canonical_masked_superstring;
+            canonical_masked_superstring.build(masked_fasta.string(), configuration);
+            essentials::save(canonical_masked_superstring, canonical_masked_index.c_str());
+        }
+        sshash::dictionary canonical_reloaded_masked_superstring;
+        essentials::load(canonical_reloaded_masked_superstring, canonical_masked_index.c_str());
+
+        assert_differential(canonical_ordinary, canonical_bigreedy,
+                            canonical_reloaded_masked_superstring, true);
         assert_expected_membership(canonical_ordinary, true);
         assert_expected_membership(canonical_bigreedy, true);
+        assert_expected_membership(canonical_reloaded_masked_superstring, true);
         for (auto const& kmer : {"ACGTT", "CGTTA", "TAGTC", "AGTCG"}) {
             auto kmer_rc = reverse_complement(kmer);
             if (canonical_ordinary.is_member(kmer_rc.c_str(), false) !=
@@ -136,6 +186,24 @@ int run() {
                 throw std::runtime_error("canonical reverse-complement membership differs for " +
                                          std::string(kmer));
             }
+        }
+
+        auto invalid_tail = root / "invalid-tail.msfa";
+        auto no_starts = root / "no-starts.msfa";
+        write_file(invalid_tail, ">B\nACGTTAGTcG\n");
+        write_file(no_starts, ">B\nacgttagtcg\n");
+        configuration.canonical_parsing = false;
+        expect_build_failure(invalid_tail, configuration, "final k-1 positions");
+        expect_build_failure(no_starts, configuration, "no represented k-mer starts");
+
+        auto isolated = root / "isolated.msfa";
+        write_file(isolated, ">B\n" + masked_sequence("ACGTTAC", {0, 2}) + "\n");
+        sshash::dictionary isolated_masked_superstring;
+        isolated_masked_superstring.build(isolated.string(), configuration);
+        if (!isolated_masked_superstring.is_member("ACGTT", false) ||
+            !isolated_masked_superstring.is_member("GTTAC", false) ||
+            isolated_masked_superstring.is_member("CGTTA", false)) {
+            throw std::runtime_error("isolated uppercase mask positions were not interpreted correctly");
         }
     } catch (...) {
         std::filesystem::remove_all(root);

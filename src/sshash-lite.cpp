@@ -46,6 +46,10 @@ int build(int argc, char** argv) {
                "Optional BIGREEDY embedding intervals file with zero-based half-open begin/end "
                "coordinates.",
                "--intervals", false);
+    parser.add("masked_superstring",
+               "Interpret uppercase bases as represented k-mer starts in one KmerCamel-style "
+               "masked superstring.",
+               "--masked-superstring", true);
     parser.add("canonical_parsing",
                "Canonical parsing of k-mers. This option changes the parsing and results in a "
                "trade-off between index space and lookup time.",
@@ -77,6 +81,10 @@ int build(int argc, char** argv) {
     if (parser.parsed("intervals_filename")) {
         build_config.intervals_filename = parser.get<std::string>("intervals_filename");
     }
+    build_config.masked_superstring = parser.get<bool>("masked_superstring");
+    if (build_config.masked_superstring and !build_config.intervals_filename.empty()) {
+        throw std::runtime_error("--masked-superstring and --intervals cannot be used together");
+    }
     build_config.print();
 
     dict.build(input_filename, build_config);
@@ -84,7 +92,9 @@ int build(int argc, char** argv) {
 
     bool check = parser.get<bool>("check");
     if (check) {
-        if (build_config.intervals_filename.empty()) {
+        if (build_config.masked_superstring) {
+            check_correctness_membership_masked_superstring(dict, input_filename);
+        } else if (build_config.intervals_filename.empty()) {
             check_correctness_membership(dict, input_filename);
         } else {
             check_correctness_membership_bigreedy(dict, input_filename,

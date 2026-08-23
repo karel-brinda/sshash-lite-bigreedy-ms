@@ -62,4 +62,11 @@ if (BUILD_TESTING)
     z
   )
   add_test(NAME bigreedy-ms-regression COMMAND bigreedy-ms-regression)
+
+  add_executable(bigreedy-ms-parser-regression tests/bigreedy_ms_parser_regression.cpp)
+  target_link_libraries(bigreedy-ms-parser-regression
+    sshashlite_static
+    z
+  )
+  add_test(NAME bigreedy-ms-parser-regression COMMAND bigreedy-ms-parser-regression)
 endif()

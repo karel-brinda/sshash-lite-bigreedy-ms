@@ -57,6 +57,7 @@ struct build_configuration {
         , c(constants::c)
 
         , canonical_parsing(false)
+        , masked_superstring(false)
         , verbose(true)
 
         , tmp_dirname(constants::default_tmp_dirname) {}
@@ -69,6 +70,7 @@ struct build_configuration {
     double c;    // drive PTHash trade-off
 
     bool canonical_parsing;
+    bool masked_superstring;
     bool verbose;
 
     std::string tmp_dirname;
@@ -78,6 +80,7 @@ struct build_configuration {
         std::cout << "k = " << k << ", m = " << m << ", seed = " << seed << ", l = " << l
                   << ", c = " << c
                   << ", canonical_parsing = " << (canonical_parsing ? "true" : "false")
+                  << ", masked_superstring = " << (masked_superstring ? "true" : "false")
                   << std::endl;
     }
 };

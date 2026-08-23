@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../gz/zip_stream.hpp"
+#include "bigreedy_ms.hpp"
 
 #include <limits>
 #include <sstream>
@@ -12,11 +13,6 @@ struct parse_data {
     uint64_t num_kmers;
     minimizers_tuples minimizers;
     compact_string_pool strings;
-};
-
-struct embedding_interval {
-    uint64_t begin;
-    uint64_t end;
 };
 
 std::vector<embedding_interval> parse_embedding_intervals(std::string const& filename,
@@ -76,7 +72,9 @@ std::string read_bigreedy_superstring(std::istream& is) {
     return sequence;
 }
 
-void parse_bigreedy(std::istream& is, parse_data& data, build_configuration const& build_config) {
+void parse_bigreedy_intervals(std::string const& superstring,
+                              std::vector<embedding_interval> const& intervals, parse_data& data,
+                              build_configuration const& build_config) {
     uint64_t k = build_config.k;
     uint64_t m = build_config.m;
     uint64_t seed = build_config.seed;
@@ -89,8 +87,6 @@ void parse_bigreedy(std::istream& is, parse_data& data, build_configuration cons
             " bits");
     }
 
-    std::string superstring = read_bigreedy_superstring(is);
-    auto intervals = parse_embedding_intervals(build_config.intervals_filename, superstring.size(), k);
     uint64_t num_super_kmers = 0;
 
     for (auto const& interval : intervals) {
@@ -146,6 +142,20 @@ void parse_bigreedy(std::istream& is, parse_data& data, build_configuration cons
     std::cout << "num_kmers " << data.num_kmers << std::endl;
     std::cout << "num_super_kmers " << data.strings.num_super_kmers() << std::endl;
     std::cout << "num_pieces " << data.strings.pieces.size() << std::endl;
+}
+
+void parse_bigreedy(std::istream& is, parse_data& data, build_configuration const& build_config) {
+    std::string superstring = read_bigreedy_superstring(is);
+    auto intervals =
+        parse_embedding_intervals(build_config.intervals_filename, superstring.size(), build_config.k);
+    parse_bigreedy_intervals(superstring, intervals, data, build_config);
+}
+
+void parse_masked_superstring(std::istream& is, parse_data& data,
+                              build_configuration const& build_config) {
+    std::string masked_superstring = read_masked_superstring(is);
+    auto intervals = masked_superstring_intervals(masked_superstring, build_config.k);
+    parse_bigreedy_intervals(masked_superstring, intervals, data, build_config);
 }
 
 void parse_file(std::istream& is, parse_data& data, build_configuration const& build_config) {
@@ -267,15 +277,22 @@ parse_data parse_file(std::string const& filename, build_configuration const& bu
     if (!is.good()) throw std::runtime_error("error in opening the file '" + filename + "'");
     std::cout << "reading file '" << filename << "'..." << std::endl;
     parse_data data(build_config.tmp_dirname);
+    if (build_config.masked_superstring and !build_config.intervals_filename.empty()) {
+        throw std::runtime_error("--masked-superstring and --intervals cannot be used together");
+    }
     if (util::ends_with(filename, ".gz")) {
         zip_istream zis(is);
-        if (build_config.intervals_filename.empty()) {
+        if (build_config.masked_superstring) {
+            parse_masked_superstring(zis, data, build_config);
+        } else if (build_config.intervals_filename.empty()) {
             parse_file(zis, data, build_config);
         } else {
             parse_bigreedy(zis, data, build_config);
         }
     } else {
-        if (build_config.intervals_filename.empty()) {
+        if (build_config.masked_superstring) {
+            parse_masked_superstring(is, data, build_config);
+        } else if (build_config.intervals_filename.empty()) {
             parse_file(is, data, build_config);
         } else {
             parse_bigreedy(is, data, build_config);
