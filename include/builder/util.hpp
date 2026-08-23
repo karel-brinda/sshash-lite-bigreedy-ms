@@ -28,12 +28,26 @@ void expect(char got, char expected) {
 struct compact_string_pool {
     compact_string_pool() {}
 
+    void build_from_string(std::string const& string, uint64_t num_super_kmers,
+                           std::vector<uint64_t>&& ends) {
+        assert(!ends.empty());
+        pthash::bit_vector_builder bvb_strings;
+        for (char c : string) bvb_strings.append_bits(util::char_to_uint64(c), 2);
+        /* Push a final sentinel (dummy) symbol to avoid bounds' checking. */
+        bvb_strings.append_bits(0, 2);
+        strings.build(&bvb_strings);
+        pieces = std::move(ends);
+        m_num_super_kmers = num_super_kmers;
+    }
+
     struct builder {
         builder(uint64_t k) : k(k), offset(0), num_super_kmers(0) {}
 
         void build(compact_string_pool& pool) {
             pool.m_num_super_kmers = num_super_kmers;
             pool.pieces.swap(pieces);
+            assert(!pool.pieces.empty() and pool.pieces.front() == 0);
+            pool.pieces.erase(pool.pieces.begin());
             pool.strings.build(&bvb_strings);
         }
 
@@ -56,7 +70,7 @@ struct compact_string_pool {
 
         void finalize() {
             /* So pieces will be of size p+1, where p is the number of DNA sequences
-               in the input file. */
+               in the input file. The leading 0 is removed by build(). */
             check_contig_size();
             pieces.push_back(bvb_strings.size() / 2);
             assert(pieces.front() == 0);

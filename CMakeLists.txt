@@ -53,3 +53,13 @@ target_link_libraries(sshash-lite
   sshashlite_static
   z
 )
+
+include(CTest)
+if (BUILD_TESTING)
+  add_executable(bigreedy-ms-regression tests/bigreedy_ms_regression.cpp)
+  target_link_libraries(bigreedy-ms-regression
+    sshashlite_static
+    z
+  )
+  add_test(NAME bigreedy-ms-regression COMMAND bigreedy-ms-regression)
+endif()

@@ -26,6 +26,17 @@ To do so, the script `script/concat_lines.py` can be used:
 
 	python3 script/concat_lines.py <multi_fasta>.fa.gz > output
 
+### BIGREEDY masked-superstring proof of concept
+
+To index a BIGREEDY superstring, provide `--intervals embeddings.tsv`. The FASTA input must
+contain exactly one unwrapped DNA sequence `B`. The tab-separated intervals file has one
+zero-based, half-open `begin<TAB>end` interval per original SPSS string. Intervals must be
+sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases.
+
+	./sshash-lite build B.fa 31 15 --intervals embeddings.tsv -d tmp -o B.sshash
+
+Only k-mers fully contained in the listed intervals are indexed.
+
 ### Enable verbose output
 
 By default we print a summary report for the whole query file.

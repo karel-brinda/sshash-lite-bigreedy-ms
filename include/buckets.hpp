@@ -7,20 +7,12 @@
 namespace sshash {
 
 struct buckets {
-    uint64_t offset_to_contig_end(uint64_t offset) const {
-        auto [pos, contig_end] = pieces.next_geq(offset);
+    uint64_t offset_to_contig_end(uint64_t offset, uint64_t k) const {
+        auto [pos, contig_end] = pieces.next_geq(offset + k);
 
         /* The following two facts hold. */
         assert(pieces.access(pos) == contig_end);
-        assert(contig_end >= offset);
-
-        if (contig_end == offset) {
-            assert(pos + 1 < pieces.size());
-            contig_end = pieces.access(pos + 1);
-        }
-
-        /* Now, the following fact holds. */
-        assert(offset < contig_end);
+        assert(contig_end >= offset + k);
 
         return contig_end;
     }
@@ -48,7 +40,7 @@ struct buckets {
     bool lookup_in_super_kmer(uint64_t super_kmer_id, uint64_t target_kmer, uint64_t k,
                               uint64_t m) const {
         uint64_t offset = offsets.access(super_kmer_id);
-        uint64_t contig_end = offset_to_contig_end(offset);
+        uint64_t contig_end = offset_to_contig_end(offset, k);
         bit_vector_iterator bv_it(strings, 2 * offset);
         uint64_t window_size = std::min<uint64_t>(k - m + 1, contig_end - offset - k + 1);
         for (uint64_t w = 0; w != window_size; ++w) {
@@ -68,7 +60,7 @@ struct buckets {
                           uint64_t target_kmer_rc, uint64_t k, uint64_t m) const {
         for (uint64_t super_kmer_id = begin; super_kmer_id != end; ++super_kmer_id) {
             uint64_t offset = offsets.access(super_kmer_id);
-            uint64_t contig_end = offset_to_contig_end(offset);
+            uint64_t contig_end = offset_to_contig_end(offset, k);
             bit_vector_iterator bv_it(strings, 2 * offset);
             uint64_t window_size = std::min<uint64_t>(k - m + 1, contig_end - offset - k + 1);
             for (uint64_t w = 0; w != window_size; ++w) {

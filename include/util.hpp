@@ -72,6 +72,7 @@ struct build_configuration {
     bool verbose;
 
     std::string tmp_dirname;
+    std::string intervals_filename;
 
     void print() const {
         std::cout << "k = " << k << ", m = " << m << ", seed = " << seed << ", l = " << l

@@ -42,6 +42,10 @@ int build(int argc, char** argv) {
         "Temporary directory used for construction in external memory. Default is directory '" +
             constants::default_tmp_dirname + "'.",
         "-d", false);
+    parser.add("intervals_filename",
+               "Optional BIGREEDY embedding intervals file with zero-based half-open begin/end "
+               "coordinates.",
+               "--intervals", false);
     parser.add("canonical_parsing",
                "Canonical parsing of k-mers. This option changes the parsing and results in a "
                "trade-off between index space and lookup time.",
@@ -70,13 +74,23 @@ int build(int argc, char** argv) {
         build_config.tmp_dirname = parser.get<std::string>("tmp_dirname");
         essentials::create_directory(build_config.tmp_dirname);
     }
+    if (parser.parsed("intervals_filename")) {
+        build_config.intervals_filename = parser.get<std::string>("intervals_filename");
+    }
     build_config.print();
 
     dict.build(input_filename, build_config);
     assert(dict.k() == k);
 
     bool check = parser.get<bool>("check");
-    if (check) check_correctness_membership(dict, input_filename);
+    if (check) {
+        if (build_config.intervals_filename.empty()) {
+            check_correctness_membership(dict, input_filename);
+        } else {
+            check_correctness_membership_bigreedy(dict, input_filename,
+                                                  build_config.intervals_filename);
+        }
+    }
 
     if (parser.parsed("output_filename")) {
         auto output_filename = parser.get<std::string>("output_filename");

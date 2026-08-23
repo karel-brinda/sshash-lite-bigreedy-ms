@@ -2,6 +2,8 @@
 
 #include "../include/gz/zip_stream.hpp"
 
+#include <sstream>
+
 namespace sshash {
 
 void random_kmer(char* kmer, uint64_t k) {
@@ -79,6 +81,66 @@ bool check_correctness_membership(dictionary const& dict, std::string const& fil
         good = check_correctness_membership(zis, dict);
     } else {
         good = check_correctness_membership(is, dict);
+    }
+    is.close();
+    return good;
+}
+
+bool check_correctness_membership_bigreedy(std::istream& is, dictionary const& dict,
+                                           std::string const& intervals_filename) {
+    uint64_t k = dict.k();
+    std::string header, superstring;
+    if (!std::getline(is, header) or !std::getline(is, superstring)) {
+        throw std::runtime_error("cannot read BIGREEDY superstring for checking");
+    }
+
+    std::ifstream intervals_file(intervals_filename.c_str());
+    if (!intervals_file.good()) {
+        throw std::runtime_error("cannot open intervals file '" + intervals_filename + "'");
+    }
+
+    std::cout << "checking BIGREEDY membership correctness..." << std::endl;
+    std::string line;
+    std::string kmer_str(k, 0);
+    uint64_t num_kmers = 0;
+    while (std::getline(intervals_file, line)) {
+        auto first = line.find_first_not_of(" \t\r");
+        if (first == std::string::npos or line[first] == '#') continue;
+        std::istringstream row(line);
+        uint64_t begin, end;
+        if (!(row >> begin >> end)) {
+            throw std::runtime_error("malformed interval while checking BIGREEDY membership");
+        }
+        for (uint64_t pos = begin; pos + k <= end; ++pos) {
+            char const* kmer = superstring.data() + pos;
+            if (dict.canonicalized() and (num_kmers & 1) == 0) {
+                uint64_t uint64_kmer = util::string_to_uint64_no_reverse(kmer, k);
+                uint64_t uint64_kmer_rc = util::compute_reverse_complement(uint64_kmer, k);
+                util::uint64_to_string_no_reverse(uint64_kmer_rc, kmer_str.data(), k);
+                kmer = kmer_str.data();
+            }
+            bool answer = dict.is_member(kmer, false);
+            if (!answer) {
+                throw std::runtime_error("BIGREEDY index missed a k-mer during correctness check");
+            }
+            ++num_kmers;
+        }
+    }
+    std::cout << "checked " << num_kmers << " kmers" << std::endl;
+    std::cout << "EVERYTHING OK!" << std::endl;
+    return true;
+}
+
+bool check_correctness_membership_bigreedy(dictionary const& dict, std::string const& filename,
+                                           std::string const& intervals_filename) {
+    std::ifstream is(filename.c_str());
+    if (!is.good()) throw std::runtime_error("error in opening the file '" + filename + "'");
+    bool good = true;
+    if (util::ends_with(filename, ".gz")) {
+        zip_istream zis(is);
+        good = check_correctness_membership_bigreedy(zis, dict, intervals_filename);
+    } else {
+        good = check_correctness_membership_bigreedy(is, dict, intervals_filename);
     }
     is.close();
     return good;
