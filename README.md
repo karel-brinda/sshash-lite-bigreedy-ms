@@ -12,11 +12,11 @@ build the dictionaries, and data format, please refer to the instructions [here]
 
 Build an index over the E. Coli [matchtigs](https://github.com/algbio/matchtigs) with
 
-	./sshash-lite build ../data/ecoli_matchtigs_k31.fa.gz 31 15 -d tmp --check -o ecoli-matchtigs.sshash
+	./sshash-lite-bigreedy-ms build ../data/ecoli_matchtigs_k31.fa.gz 31 15 -d tmp --check -o ecoli-matchtigs.sshash
 
 and query with
 
-	./sshash-lite query ecoli-matchtigs.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
+	./sshash-lite-bigreedy-ms query ecoli-matchtigs.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
 
 where a query read is considered as positive if at least 80% of the k-mers are positive.
 
@@ -33,7 +33,7 @@ contain exactly one unwrapped DNA sequence `B`. The tab-separated intervals file
 zero-based, half-open `begin<TAB>end` interval per original SPSS string. Intervals must be
 sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases.
 
-	./sshash-lite build B.fa 31 15 --intervals embeddings.tsv -d tmp -o B.sshash
+	./sshash-lite-bigreedy-ms build B.fa 31 15 --intervals embeddings.tsv -d tmp -o B.sshash
 
 Only k-mers fully contained in the listed intervals are indexed.
 
@@ -41,7 +41,7 @@ KmerCamel masked-superstring output can be indexed directly, without an embeddin
 
 	kmercamel compute -k 31 -o bigreedy.msfa simplitigs.fa
 
-	./sshash-lite build bigreedy.msfa 31 15 --masked-superstring --canonical-parsing \
+	./sshash-lite-bigreedy-ms build bigreedy.msfa 31 15 --masked-superstring --canonical-parsing \
 		-d tmp -o bigreedy.sshash --check
 
 With `--masked-superstring`, uppercase bases encode represented k-mer starts and lowercase bases
@@ -64,6 +64,6 @@ and re-run the query.
 
 The query output is written on `std::cerr` by default, so it is possible to capture the output with
 
-	./sshash-lite query ecoli-matchtigs.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8 2> query_output.txt
+	./sshash-lite-bigreedy-ms query ecoli-matchtigs.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8 2> query_output.txt
 	
 which writes the output to the file `query_output.txt`.

@@ -46,7 +46,7 @@ int run() {
     assert_intervals("AcGtacga", k, {{0, 5}, {2, 7}});  // one lowercase position between runs
     expect_invalid_tail_mask("aCgtcG", k);  // position 5 is after the last valid start, 1
 
-    auto root = std::filesystem::temp_directory_path() / "sshash-lite-last-valid-start";
+    auto root = std::filesystem::temp_directory_path() / "sshash-lite-bigreedy-ms-last-valid-start";
     std::filesystem::create_directories(root);
     try {
         sshash::build_configuration configuration;

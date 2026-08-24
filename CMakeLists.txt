@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(SSHASH-LITE)
+project(SSHASH-LITE-BIGREEDY-MS)
 
 set(CMAKE_CXX_STANDARD 20)
 if (NOT CMAKE_BUILD_TYPE)
@@ -48,8 +48,8 @@ add_library(sshashlite_static STATIC
 )
 
 # build with the lib
-add_executable(sshash-lite src/sshash-lite.cpp)
-target_link_libraries(sshash-lite
+add_executable(sshash-lite-bigreedy-ms src/sshash-lite-bigreedy-ms.cpp)
+target_link_libraries(sshash-lite-bigreedy-ms
   sshashlite_static
   z
 )

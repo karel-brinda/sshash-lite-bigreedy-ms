@@ -166,8 +166,8 @@ int query(int argc, char** argv) {
 
 int help() {
     std::cerr << "Supported commands are:\n";
-    std::cerr << "sshash-lite build\n";
-    std::cerr << "sshash-lite query\n";
+    std::cerr << "sshash-lite-bigreedy-ms build\n";
+    std::cerr << "sshash-lite-bigreedy-ms query\n";
     return 1;
 }
 
