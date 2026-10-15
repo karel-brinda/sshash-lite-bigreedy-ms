@@ -22,7 +22,19 @@ First install [ProphAsm](https://github.com/prophyle/prophasm) and
 
 	conda install -c conda-forge -c bioconda prophasm kmercamel
 
-(or `pixi global install prophasm kmercamel`). Then, from the `build/` directory:
+or
+
+	pixi global install -c conda-forge -c bioconda prophasm kmercamel
+
+(note that the `bioconda` channel must be specified explicitly, otherwise the packages are not
+found). On Apple Silicon, ProphAsm has no arm64 build on Bioconda and must be installed as
+x86_64 (it then runs via Rosetta):
+
+	pixi global install -c conda-forge -c bioconda --platform osx-64 prophasm
+
+or with conda: `CONDA_SUBDIR=osx-64 conda install -c conda-forge -c bioconda prophasm`.
+
+Then, from the `build/` directory:
 
 1. Compute simplitigs from the input k-mer set with ProphAsm:
 

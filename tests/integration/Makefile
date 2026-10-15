@@ -12,7 +12,11 @@
 #
 # or
 #
-#   pixi global install prophasm kmercamel
+#   pixi global install -c conda-forge -c bioconda prophasm kmercamel
+#
+# (the bioconda channel must be given explicitly; on Apple Silicon install
+# prophasm as x86_64, e.g. with 'pixi global install -c conda-forge -c bioconda
+# --platform osx-64 prophasm' — it runs via Rosetta).
 #
 # and the sshash-lite-bigreedy-ms binary built in <repo>/build (see README).
 #
