@@ -1,24 +1,20 @@
 # End-to-end integration test for sshash-lite-bigreedy-ms:
 #
-#   SPSS (unitigs)
-#     --[prophasm]-->          simplitigs
+#   unitigs (repetition-free SPSS)
 #     --[kmercamel -S]-->      BIGREEDY masked superstring
 #     --[sshash-lite build]--> membership index (+ --check)
 #     --[sshash-lite query]--> query report
 #
-# Requirements: prophasm and kmercamel on PATH (both are on Bioconda), e.g.
+# Requirements: kmercamel on PATH (available on Bioconda), e.g.
 #
-#   conda install -c conda-forge -c bioconda prophasm kmercamel
+#   conda install -c conda-forge -c bioconda kmercamel
 #
 # or
 #
-#   pixi global install -c conda-forge -c bioconda prophasm kmercamel
+#   pixi global install -c conda-forge -c bioconda kmercamel
 #
-# (the bioconda channel must be given explicitly; on Apple Silicon install
-# prophasm as x86_64, e.g. with 'pixi global install -c conda-forge -c bioconda
-# --platform osx-64 prophasm' — it runs via Rosetta).
-#
-# and the sshash-lite-bigreedy-ms binary built in <repo>/build (see README).
+# (the bioconda channel must be given explicitly), and the
+# sshash-lite-bigreedy-ms binary built in <repo>/build (see README).
 #
 # Usage:
 #
@@ -26,6 +22,10 @@
 #   make clean      # remove all generated files
 #
 # Tunables: K, M, T (query threshold), INPUT, QUERIES, BIN, OUT.
+#
+# Note: the input must be a repetition-free SPSS (unitigs or simplitigs;
+# not matchtigs, which repeat k-mers). For an arbitrary k-mer set, compute
+# simplitigs first, e.g. with prophasm (see README).
 
 K ?= 31
 M ?= 15
@@ -45,25 +45,20 @@ test: $(OUT)/bigreedy.sshash
 	$(BIN) query $(OUT)/bigreedy.sshash $(QUERIES) -t $(T)
 	@echo "=== INTEGRATION TEST PASSED ==="
 
-$(OUT)/simplitigs.fa: $(INPUT) | check-tools
+$(OUT)/bigreedy.msfa: $(INPUT) | check-tools
 	@mkdir -p $(OUT)
-	prophasm -k $(K) -i $(INPUT) -o $@
-
-$(OUT)/bigreedy.msfa: $(OUT)/simplitigs.fa
-	kmercamel compute -k $(K) -S -o $@ $<
+	kmercamel compute -k $(K) -S -o $@ $(INPUT)
 
 $(OUT)/bigreedy.sshash: $(OUT)/bigreedy.msfa
 	@mkdir -p $(OUT)/tmp
 	$(BIN) build $< $(K) $(M) --canonical-parsing -d $(OUT)/tmp --check -o $@
 
 check-tools:
-	@command -v prophasm >/dev/null 2>&1 || { \
-		echo "error: prophasm not found on PATH;"; \
-		echo "       install it e.g. with 'conda install -c conda-forge -c bioconda prophasm'"; \
-		exit 1; }
 	@command -v kmercamel >/dev/null 2>&1 || { \
-		echo "error: kmercamel not found on PATH;"; \
-		echo "       install it e.g. with 'conda install -c conda-forge -c bioconda kmercamel'"; \
+		echo "error: kmercamel not found on PATH; install it e.g. with"; \
+		echo "       conda install -c conda-forge -c bioconda kmercamel"; \
+		echo "       or"; \
+		echo "       pixi global install -c conda-forge -c bioconda kmercamel"; \
 		exit 1; }
 	@test -x "$(BIN)" || { \
 		echo "error: $(BIN) not found;"; \
