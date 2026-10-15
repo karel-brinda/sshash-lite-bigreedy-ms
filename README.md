@@ -10,25 +10,43 @@ build the dictionaries, and data format, please refer to the instructions [here]
 
 ### Example usage
 
-Build an index over the E. Coli [matchtigs](https://github.com/algbio/matchtigs) with
+The default input format is a KmerCamel-style masked superstring: a FASTA file with one header
+line and one unwrapped DNA sequence, where uppercase bases encode represented k-mer starts and
+lowercase bases encode unrepresented starts. Normal KmerCamel `compute -o` output is directly
+usable, without any conversion:
 
-	./sshash-lite-bigreedy-ms build ../data/ecoli_matchtigs_k31.fa.gz 31 15 -d tmp --check -o ecoli-matchtigs.sshash
+	kmercamel compute -k 31 -o bigreedy.msfa simplitigs.fa
 
-and query with
+	./sshash-lite-bigreedy-ms build bigreedy.msfa 31 15 --canonical-parsing -d tmp -o bigreedy.sshash --check
 
-	./sshash-lite-bigreedy-ms query ecoli-matchtigs.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
+SSHash-Lite consumes the case mask during construction and stores the DNA sequence plus the
+derived physical run ends, not the mask. KmerCamel's default reverse-complement behavior
+corresponds to SSHash-Lite `--canonical-parsing`; KmerCamel `-u` corresponds to SSHash-Lite
+regular parsing.
+
+Query with
+
+	./sshash-lite-bigreedy-ms query bigreedy.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
 
 where a query read is considered as positive if at least 80% of the k-mers are positive.
 
-**NOTE**: Input files are expected to have **one DNA sequence per line**. If a sequence spans multiple lines (e.g., multi-fasta), the lines should be concatenated before indexing.
+### SPSS input (one sequence per line)
+
+To index a plain set of sequences instead (e.g. BCALM unitigs without duplicates, or
+[matchtigs](https://github.com/algbio/matchtigs) with duplicates), pass `--spss`:
+
+	./sshash-lite-bigreedy-ms build ../data/ecoli_matchtigs_k31.fa.gz 31 15 --spss -d tmp --check -o ecoli-matchtigs.sshash
+
+**NOTE**: With `--spss`, input files are expected to have **one DNA sequence per line**. If a sequence spans multiple lines (e.g., multi-fasta), the lines should be concatenated before indexing.
 
 To do so, the script `script/concat_lines.py` can be used:
 
 	python3 script/concat_lines.py <multi_fasta>.fa.gz > output
 
-### BIGREEDY masked-superstring proof of concept
+### BIGREEDY superstring with explicit intervals
 
-To index a BIGREEDY superstring, you can provide `--intervals embeddings.tsv`. The FASTA input must
+To index a BIGREEDY superstring with external interval annotations, you can provide
+`--intervals embeddings.tsv` (this disables the masked-superstring default). The FASTA input must
 contain exactly one unwrapped DNA sequence `B`. The tab-separated intervals file has one
 zero-based, half-open `begin<TAB>end` interval per original SPSS string. Intervals must be
 sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases.
@@ -36,21 +54,6 @@ sorted by `begin`, have length at least `k`, and overlap by fewer than `k` bases
 	./sshash-lite-bigreedy-ms build B.fa 31 15 --intervals embeddings.tsv -d tmp -o B.sshash
 
 Only k-mers fully contained in the listed intervals are indexed.
-
-KmerCamel masked-superstring output can be indexed directly, without an embeddings file:
-
-	kmercamel compute -k 31 -o bigreedy.msfa simplitigs.fa
-
-	./sshash-lite-bigreedy-ms build bigreedy.msfa 31 15 --masked-superstring --canonical-parsing \
-		-d tmp -o bigreedy.sshash --check
-
-With `--masked-superstring`, uppercase bases encode represented k-mer starts and lowercase bases
-encode unrepresented starts. Normal KmerCamel `compute -o` output is directly usable as the
-min-one masked superstring for this proof of concept. SSHash-Lite consumes the case mask during
-construction and stores the DNA sequence plus the derived physical run ends, not the mask.
-
-KmerCamel's default reverse-complement behavior corresponds to SSHash-Lite
-`--canonical-parsing`; KmerCamel `-u` corresponds to SSHash-Lite regular parsing.
 
 ### Enable verbose output
 
