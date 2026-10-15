@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(SSHASH-LITE)
+project(SSHASH-LITE-BIGREEDY-MS)
 
 set(CMAKE_CXX_STANDARD 20)
 if (NOT CMAKE_BUILD_TYPE)
@@ -48,8 +48,25 @@ add_library(sshashlite_static STATIC
 )
 
 # build with the lib
-add_executable(sshash-lite src/sshash-lite.cpp)
-target_link_libraries(sshash-lite
+add_executable(sshash-lite-bigreedy-ms src/sshash-lite-bigreedy-ms.cpp)
+target_link_libraries(sshash-lite-bigreedy-ms
   sshashlite_static
   z
 )
+
+include(CTest)
+if (BUILD_TESTING)
+  add_executable(bigreedy-ms-regression tests/bigreedy_ms_regression.cpp)
+  target_link_libraries(bigreedy-ms-regression
+    sshashlite_static
+    z
+  )
+  add_test(NAME bigreedy-ms-regression COMMAND bigreedy-ms-regression)
+
+  add_executable(bigreedy-ms-parser-regression tests/bigreedy_ms_parser_regression.cpp)
+  target_link_libraries(bigreedy-ms-parser-regression
+    sshashlite_static
+    z
+  )
+  add_test(NAME bigreedy-ms-parser-regression COMMAND bigreedy-ms-parser-regression)
+endif()

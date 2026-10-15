@@ -12,11 +12,11 @@ int build(int argc, char** argv) {
 
     /* mandatory arguments */
     parser.add("input_filename",
-               "Must be a FASTA file (.fa/fasta extension) compressed with gzip (.gz) or not\n"
-               "\twith one DNA sequence per line.\n"
-               "\tFor example, it could be the de Bruijn graph topology output by BCALM (without "
-               "duplicates)\n"
-               "\tor matchtigs (with duplicates).");
+               "Must be a FASTA file (.fa/fasta extension) compressed with gzip (.gz) or not.\n"
+               "\tBy default it is expected to contain one KmerCamel-style masked superstring\n"
+               "\t(uppercase bases encode represented k-mer starts), as output by 'kmercamel "
+               "compute'.\n"
+               "\tUse --spss for one DNA sequence per line (e.g. BCALM unitigs or matchtigs).");
     parser.add("k", "K-mer length (must be <= " + std::to_string(constants::max_k) + ").");
     parser.add("m", "Minimizer length (must be < k).");
 
@@ -42,6 +42,18 @@ int build(int argc, char** argv) {
         "Temporary directory used for construction in external memory. Default is directory '" +
             constants::default_tmp_dirname + "'.",
         "-d", false);
+    parser.add("intervals_filename",
+               "Optional BIGREEDY embedding intervals file with zero-based half-open begin/end "
+               "coordinates.",
+               "--intervals", false);
+    parser.add("masked_superstring",
+               "Interpret uppercase bases as represented k-mer starts in one KmerCamel-style "
+               "masked superstring. This is the default; the flag is kept for compatibility.",
+               "--masked-superstring", true);
+    parser.add("spss",
+               "Interpret the input as one DNA sequence per line (e.g. BCALM unitigs or "
+               "matchtigs) instead of a KmerCamel masked superstring.",
+               "--spss", true);
     parser.add("canonical_parsing",
                "Canonical parsing of k-mers. This option changes the parsing and results in a "
                "trade-off between index space and lookup time.",
@@ -70,13 +82,35 @@ int build(int argc, char** argv) {
         build_config.tmp_dirname = parser.get<std::string>("tmp_dirname");
         essentials::create_directory(build_config.tmp_dirname);
     }
+    if (parser.parsed("intervals_filename")) {
+        build_config.intervals_filename = parser.get<std::string>("intervals_filename");
+    }
+    bool spss = parser.get<bool>("spss");
+    bool masked_superstring_flag = parser.get<bool>("masked_superstring");
+    if (spss and masked_superstring_flag) {
+        throw std::runtime_error("--spss and --masked-superstring cannot be used together");
+    }
+    if (masked_superstring_flag and !build_config.intervals_filename.empty()) {
+        throw std::runtime_error("--masked-superstring and --intervals cannot be used together");
+    }
+    /* masked superstring is the default input format; --spss or --intervals disable it */
+    build_config.masked_superstring = !spss and build_config.intervals_filename.empty();
     build_config.print();
 
     dict.build(input_filename, build_config);
     assert(dict.k() == k);
 
     bool check = parser.get<bool>("check");
-    if (check) check_correctness_membership(dict, input_filename);
+    if (check) {
+        if (build_config.masked_superstring) {
+            check_correctness_membership_masked_superstring(dict, input_filename);
+        } else if (build_config.intervals_filename.empty()) {
+            check_correctness_membership(dict, input_filename);
+        } else {
+            check_correctness_membership_bigreedy(dict, input_filename,
+                                                  build_config.intervals_filename);
+        }
+    }
 
     if (parser.parsed("output_filename")) {
         auto output_filename = parser.get<std::string>("output_filename");
@@ -142,8 +176,8 @@ int query(int argc, char** argv) {
 
 int help() {
     std::cerr << "Supported commands are:\n";
-    std::cerr << "sshash-lite build\n";
-    std::cerr << "sshash-lite query\n";
+    std::cerr << "sshash-lite-bigreedy-ms build\n";
+    std::cerr << "sshash-lite-bigreedy-ms query\n";
     return 1;
 }
 

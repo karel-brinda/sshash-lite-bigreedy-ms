@@ -160,7 +160,7 @@ private:
             uint64_t pos_in_string = 2 * offset;
             m_reverse = false;
             m_string_iterator.at(pos_in_string);
-            uint64_t contig_end = (m_dict->m_buckets).offset_to_contig_end(offset);
+            uint64_t contig_end = (m_dict->m_buckets).offset_to_contig_end(offset, m_k);
             m_res = true;
             m_pos_in_window = 0;
             m_window_size = std::min<uint64_t>(m_k - m_m + 1, contig_end - offset - m_k + 1);

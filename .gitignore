@@ -1,2 +1,4 @@
 .DS_Store
 build
+build-debug
+tests/integration/output
