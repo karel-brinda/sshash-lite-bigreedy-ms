@@ -11,24 +11,48 @@ build the dictionaries, and data format, please refer to the instructions [here]
 ### Example usage
 
 The default input format is a KmerCamel-style masked superstring: a FASTA file with one header
-line and one unwrapped DNA sequence, where uppercase bases encode represented k-mer starts and
+line and one DNA sequence, where uppercase bases encode represented k-mer starts and
 lowercase bases encode unrepresented starts. Normal KmerCamel `compute -o` output is directly
-usable, without any conversion:
+usable, without any conversion.
 
-	kmercamel compute -k 31 -o bigreedy.msfa simplitigs.fa
+The complete pipeline, starting from one of the example files in `data/`, looks as follows.
+First install [ProphAsm](https://github.com/prophyle/prophasm) and
+[KmerCamel](https://github.com/OndrejSladky/kmercamel), preferably from
+[Bioconda](https://bioconda.github.io/):
 
-	./sshash-lite-bigreedy-ms build bigreedy.msfa 31 15 --canonical-parsing -d tmp -o bigreedy.sshash --check
+	conda install -c conda-forge -c bioconda prophasm kmercamel
+
+(or `pixi global install prophasm kmercamel`). Then, from the `build/` directory:
+
+1. Compute simplitigs from the input k-mer set with ProphAsm:
+
+		prophasm -k 31 -i ../data/ecoli_unitigs_k31.fa.gz -o simplitigs.fa
+
+2. Compute the BIGREEDY masked superstring from the simplitigs with KmerCamel
+   (`-S` starts the SPSS-centric computation, which merges the provided simplitigs):
+
+		kmercamel compute -k 31 -S -o bigreedy.msfa simplitigs.fa
+
+3. Build the membership index:
+
+		./sshash-lite-bigreedy-ms build bigreedy.msfa 31 15 --canonical-parsing -d tmp -o bigreedy.sshash --check
+
+4. Query it:
+
+		./sshash-lite-bigreedy-ms query bigreedy.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
+
+where a query read is considered as positive if at least 80% of the k-mers are positive.
 
 SSHash-Lite consumes the case mask during construction and stores the DNA sequence plus the
 derived physical run ends, not the mask. KmerCamel's default reverse-complement behavior
 corresponds to SSHash-Lite `--canonical-parsing`; KmerCamel `-u` corresponds to SSHash-Lite
 regular parsing.
 
-Query with
+The same pipeline is also available as an integration test that anyone can run with just
+`prophasm` and `kmercamel` on `PATH`:
 
-	./sshash-lite-bigreedy-ms query bigreedy.sshash ../data/queries/SRR9873306_1.10K.fastq.gz -t 0.8
-
-where a query read is considered as positive if at least 80% of the k-mers are positive.
+	cd tests/integration
+	make
 
 ### SPSS input (one sequence per line)
 
